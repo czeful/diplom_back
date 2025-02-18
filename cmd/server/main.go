@@ -10,6 +10,7 @@ import (
 	"github.com/Dias221467/Achievemenet_Manager/internal/handlers"
 	"github.com/Dias221467/Achievemenet_Manager/internal/repository"
 	"github.com/Dias221467/Achievemenet_Manager/internal/services"
+	"github.com/Dias221467/Achievemenet_Manager/pkg/middleware"
 	"github.com/gorilla/mux"
 )
 
@@ -37,6 +38,9 @@ func main() {
 	router.HandleFunc("/goals/{id}", goalHandler.GetGoalHandler).Methods("GET")
 	router.HandleFunc("/goals/{id}", goalHandler.UpdateGoalHandler).Methods("PUT")
 	router.HandleFunc("/goals/{id}", goalHandler.DeleteGoalHandler).Methods("DELETE")
+
+	// Apply logging middleware to all routes
+	router.Use(middleware.LoggingMiddleware)
 
 	// Start the HTTP server
 	port := cfg.Port
