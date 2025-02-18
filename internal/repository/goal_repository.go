@@ -29,11 +29,17 @@ func (r *GoalRepository) CreateGoal(ctx context.Context, goal *models.Goal) (*mo
 	goal.CreatedAt = time.Now()
 	goal.UpdatedAt = time.Now()
 
-	// Insert the goal into the database
-	_, err := r.collection.InsertOne(ctx, goal)
+	result, err := r.collection.InsertOne(ctx, goal)
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert goal: %v", err)
 	}
+
+	// Cast the inserted ID and assign it to the goal object
+	insertedID, ok := result.InsertedID.(primitive.ObjectID)
+	if !ok {
+		return nil, fmt.Errorf("failed to cast inserted ID")
+	}
+	goal.ID = insertedID
 
 	return goal, nil
 }
