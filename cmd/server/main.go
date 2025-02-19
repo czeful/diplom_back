@@ -37,12 +37,13 @@ func main() {
 	// Initialize Gorilla Mux router
 	router := mux.NewRouter()
 
-	// Register Goal routes
-	router.HandleFunc("/goals", goalHandler.CreateGoalHandler).Methods("POST")
-	router.HandleFunc("/goals", goalHandler.GetAllGoalsHandler).Methods("GET")
-	router.HandleFunc("/goals/{id}", goalHandler.GetGoalHandler).Methods("GET")
-	router.HandleFunc("/goals/{id}", goalHandler.UpdateGoalHandler).Methods("PUT")
-	router.HandleFunc("/goals/{id}", goalHandler.DeleteGoalHandler).Methods("DELETE")
+	// Apply authentication middleware to goal routes
+	protectedRoutes := router.PathPrefix("/goals").Subrouter()
+	protectedRoutes.Use(middleware.AuthMiddleware(cfg.JWTSecret))
+	protectedRoutes.HandleFunc("", goalHandler.CreateGoalHandler).Methods("POST")
+	protectedRoutes.HandleFunc("/{id}", goalHandler.GetGoalHandler).Methods("GET")
+	protectedRoutes.HandleFunc("/{id}", goalHandler.UpdateGoalHandler).Methods("PUT")
+	protectedRoutes.HandleFunc("/{id}", goalHandler.DeleteGoalHandler).Methods("DELETE")
 
 	// Register User routes
 	router.HandleFunc("/users/register", userHandler.RegisterUserHandler).Methods("POST")
