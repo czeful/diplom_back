@@ -48,7 +48,12 @@ func main() {
 	// Register User routes
 	router.HandleFunc("/users/register", userHandler.RegisterUserHandler).Methods("POST")
 	router.HandleFunc("/users/login", userHandler.LoginUserHandler).Methods("POST")
-	router.HandleFunc("/users/{id}", userHandler.GetUserHandler).Methods("GET")
+
+	// Protected user routes (only authenticated users can access)
+	protectedUserRoutes := router.PathPrefix("/users").Subrouter()
+	protectedUserRoutes.Use(middleware.AuthMiddleware(cfg.JWTSecret))
+	protectedUserRoutes.HandleFunc("/{id}", userHandler.GetUserHandler).Methods("GET")
+	protectedUserRoutes.HandleFunc("/{id}", userHandler.UpdateUserHandler).Methods("PUT")
 
 	// Apply middleware for logging
 	router.Use(middleware.LoggingMiddleware)

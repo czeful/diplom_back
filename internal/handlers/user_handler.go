@@ -9,6 +9,7 @@ import (
 	"github.com/Dias221467/Achievemenet_Manager/internal/models"
 	"github.com/Dias221467/Achievemenet_Manager/internal/services"
 	jwtutil "github.com/Dias221467/Achievemenet_Manager/pkg/jwt"
+	"github.com/Dias221467/Achievemenet_Manager/pkg/middleware"
 	"github.com/gorilla/mux"
 )
 
@@ -79,13 +80,64 @@ func (h *UserHandler) LoginUserHandler(w http.ResponseWriter, r *http.Request) {
 // GetUserHandler handles fetching a user by ID.
 func (h *UserHandler) GetUserHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	id := vars["id"]
+	requestedUserID := vars["id"]
 
-	user, err := h.Service.GetUser(r.Context(), id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+	// Get the logged-in user from the request context
+	claims := middleware.GetUserFromContext(r.Context())
+	if claims == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
+
+	// Ensure that the requested user ID matches the logged-in user’s ID
+	if requestedUserID != claims.UserID {
+		http.Error(w, "Forbidden: You can only access your own profile", http.StatusForbidden)
+		return
+	}
+
+	// Fetch the user from the database
+	user, err := h.Service.GetUser(r.Context(), requestedUserID)
+	if err != nil {
+		http.Error(w, "User not found", http.StatusNotFound)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(user)
+}
+
+func (h *UserHandler) UpdateUserHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	requestedUserID := vars["id"]
+
+	// Get logged-in user
+	claims := middleware.GetUserFromContext(r.Context())
+	if claims == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Ensure only the logged-in user can update their own profile
+	if requestedUserID != claims.UserID {
+		http.Error(w, "Forbidden: You can only update your own profile", http.StatusForbidden)
+		return
+	}
+
+	// Decode request body
+	var updatedUser models.User
+	if err := json.NewDecoder(r.Body).Decode(&updatedUser); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	// Update user in DB
+	updatedUserData, err := h.Service.UpdateUser(r.Context(), requestedUserID, &updatedUser)
+	if err != nil {
+		http.Error(w, "Failed to update user", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(updatedUserData)
 }
