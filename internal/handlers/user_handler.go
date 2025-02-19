@@ -3,7 +3,6 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"time"
 
 	"github.com/Dias221467/Achievemenet_Manager/internal/config"
 	"github.com/Dias221467/Achievemenet_Manager/internal/models"
@@ -62,7 +61,7 @@ func (h *UserHandler) LoginUserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Generate a JWT token
-	token, err := jwtutil.GenerateToken(user.ID.Hex(), user.Email, h.Config.JWTSecret, 24*time.Hour)
+	token, err := jwtutil.GenerateToken(user.ID.Hex(), user.Email, h.Config.JWTSecret, h.Config.TokenExpiry)
 	if err != nil {
 		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
 		return
