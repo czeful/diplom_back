@@ -30,6 +30,12 @@ func (s *UserService) RegisterUser(ctx context.Context, user *models.User) (*mod
 		return nil, fmt.Errorf("missing required user fields")
 	}
 
+	// Check if the email is already registered
+	existingUser, _ := s.repo.GetUserByEmail(ctx, user.Email)
+	if existingUser != nil {
+		return nil, fmt.Errorf("email already in use")
+	}
+
 	// Hash the user's password.
 	hashedPwd, err := bcrypt.GenerateFromPassword([]byte(user.HashedPassword), bcrypt.DefaultCost)
 	if err != nil {
