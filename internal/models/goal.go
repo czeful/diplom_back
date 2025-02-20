@@ -8,11 +8,12 @@ import (
 
 // Goal represents a user's goal in the system.
 type Goal struct {
-	ID          primitive.ObjectID `bson:"_id,omitempty"`
-	Name        string             `bson:"name"`
-	Description string             `bson:"description"`
-	Steps       []string           `bson:"steps"`      // Steps to complete the goal
-	Status      string             `bson:"status"`     // e.g., "pending", "completed", etc.
-	CreatedAt   time.Time          `bson:"created_at"` // Timestamp of goal creation
-	UpdatedAt   time.Time          `bson:"updated_at"` // Timestamp for the last update
+	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	UserID      primitive.ObjectID `bson:"user_id" json:"user_id"` // Add UserID to track owner
+	Name        string             `bson:"name" json:"name"`
+	Description string             `bson:"description" json:"description"`
+	Steps       []string           `bson:"steps" json:"steps"`
+	Status      string             `bson:"status" json:"status"`
+	CreatedAt   time.Time          `bson:"created_at" json:"created_at"`
+	UpdatedAt   time.Time          `bson:"updated_at" json:"updated_at"`
 }

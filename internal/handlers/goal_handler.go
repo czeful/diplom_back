@@ -4,10 +4,13 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/Dias221467/Achievemenet_Manager/internal/models"
 	"github.com/Dias221467/Achievemenet_Manager/internal/services"
+	"github.com/Dias221467/Achievemenet_Manager/pkg/middleware"
 	"github.com/gorilla/mux"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 // GoalHandler handles HTTP requests related to goals.
@@ -22,6 +25,14 @@ func NewGoalHandler(service *services.GoalService) *GoalHandler {
 
 // CreateGoalHandler handles the creation of a new goal.
 func (h *GoalHandler) CreateGoalHandler(w http.ResponseWriter, r *http.Request) {
+	// Get the logged-in user from JWT token
+	claims := middleware.GetUserFromContext(r.Context())
+	if claims == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Decode request body
 	var goal models.Goal
 	if err := json.NewDecoder(r.Body).Decode(&goal); err != nil {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
@@ -29,11 +40,23 @@ func (h *GoalHandler) CreateGoalHandler(w http.ResponseWriter, r *http.Request) 
 	}
 	defer r.Body.Close()
 
-	createdGoal, err := h.Service.CreateGoal(r.Context(), &goal)
+	// Convert UserID from string to ObjectID
+	userID, err := primitive.ObjectIDFromHex(claims.UserID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Invalid user ID", http.StatusInternalServerError)
 		return
 	}
+	goal.UserID = userID // Assign the logged-in user's ID
+	goal.CreatedAt = time.Now()
+	goal.UpdatedAt = time.Now()
+
+	// Save the goal in DB
+	createdGoal, err := h.Service.CreateGoal(r.Context(), &goal)
+	if err != nil {
+		http.Error(w, "Failed to create goal", http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(createdGoal)
 }
@@ -55,33 +78,90 @@ func (h *GoalHandler) GetGoalHandler(w http.ResponseWriter, r *http.Request) {
 // UpdateGoalHandler handles updating an existing goal.
 func (h *GoalHandler) UpdateGoalHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	id := vars["id"]
+	goalID := vars["id"]
 
-	var goal models.Goal
-	if err := json.NewDecoder(r.Body).Decode(&goal); err != nil {
+	// Get the logged-in user from JWT token
+	claims := middleware.GetUserFromContext(r.Context())
+	if claims == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Convert goalID to ObjectID
+	objID, err := primitive.ObjectIDFromHex(goalID)
+	if err != nil {
+		http.Error(w, "Invalid goal ID", http.StatusBadRequest)
+		return
+	}
+
+	// Fetch the goal from DB
+	goal, err := h.Service.GetGoal(r.Context(), goalID)
+	if err != nil || goal == nil {
+		http.Error(w, "Goal not found", http.StatusNotFound)
+		return
+	}
+
+	// Check if the logged-in user is the owner of the goal
+	if goal.UserID.Hex() != claims.UserID {
+		http.Error(w, "Forbidden: You can only update your own goals", http.StatusForbidden)
+		return
+	}
+
+	// Decode request body
+	var updatedGoal models.Goal
+	if err := json.NewDecoder(r.Body).Decode(&updatedGoal); err != nil {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
 	defer r.Body.Close()
 
-	updatedGoal, err := h.Service.UpdateGoal(r.Context(), id, &goal)
+	// Perform update
+	updatedGoal.ID = objID
+	updatedGoal.UserID = goal.UserID // Keep the same owner
+	updatedGoal.UpdatedAt = time.Now()
+
+	updatedGoalData, err := h.Service.UpdateGoal(r.Context(), goalID, &updatedGoal)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Failed to update goal", http.StatusInternalServerError)
 		return
 	}
+
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(updatedGoal)
+	json.NewEncoder(w).Encode(updatedGoalData)
 }
 
 // DeleteGoalHandler handles deleting a goal by its ID.
 func (h *GoalHandler) DeleteGoalHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	id := vars["id"]
+	goalID := vars["id"]
 
-	if err := h.Service.DeleteGoal(r.Context(), id); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	// Get the logged-in user from JWT token
+	claims := middleware.GetUserFromContext(r.Context())
+	if claims == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
+
+	// Fetch the goal from DB
+	goal, err := h.Service.GetGoal(r.Context(), goalID)
+	if err != nil || goal == nil {
+		http.Error(w, "Goal not found", http.StatusNotFound)
+		return
+	}
+
+	// Check if the logged-in user is the owner
+	if goal.UserID.Hex() != claims.UserID {
+		http.Error(w, "Forbidden: You can only delete your own goals", http.StatusForbidden)
+		return
+	}
+
+	// Perform delete
+	err = h.Service.DeleteGoal(r.Context(), goalID)
+	if err != nil {
+		http.Error(w, "Failed to delete goal", http.StatusInternalServerError)
+		return
+	}
+
 	w.WriteHeader(http.StatusNoContent)
 }
 
