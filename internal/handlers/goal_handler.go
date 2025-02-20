@@ -50,6 +50,12 @@ func (h *GoalHandler) CreateGoalHandler(w http.ResponseWriter, r *http.Request) 
 	goal.CreatedAt = time.Now()
 	goal.UpdatedAt = time.Now()
 
+	// Initialize `progress`: All steps = false
+	goal.Progress = make(map[string]bool)
+	for _, step := range goal.Steps {
+		goal.Progress[step] = false
+	}
+
 	// Save the goal in DB
 	createdGoal, err := h.Service.CreateGoal(r.Context(), &goal)
 	if err != nil {
@@ -128,6 +134,62 @@ func (h *GoalHandler) UpdateGoalHandler(w http.ResponseWriter, r *http.Request) 
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(updatedGoalData)
+}
+
+func (h *GoalHandler) UpdateGoalProgressHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	goalID := vars["id"]
+
+	// Get logged-in user
+	claims := middleware.GetUserFromContext(r.Context())
+	if claims == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Fetch goal from DB
+	goal, err := h.Service.GetGoal(r.Context(), goalID)
+	if err != nil || goal == nil {
+		http.Error(w, "Goal not found", http.StatusNotFound)
+		return
+	}
+
+	// 🔹 Проверяем, что пользователь - владелец цели
+	if goal.UserID.Hex() != claims.UserID {
+		http.Error(w, "Forbidden: You can only update your own goals", http.StatusForbidden)
+		return
+	}
+
+	// Decode request body
+	var progressUpdate struct {
+		Step string `json:"step"`
+		Done bool   `json:"done"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&progressUpdate); err != nil {
+		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	// 🔹 Проверяем, есть ли шаг в списке шагов
+	if _, exists := goal.Progress[progressUpdate.Step]; !exists {
+		http.Error(w, "Step not found in goal", http.StatusBadRequest)
+		return
+	}
+
+	// 🔹 Обновляем статус шага
+	goal.Progress[progressUpdate.Step] = progressUpdate.Done
+	goal.UpdatedAt = time.Now()
+
+	// Save changes
+	updatedGoal, err := h.Service.UpdateGoal(r.Context(), goalID, goal)
+	if err != nil {
+		http.Error(w, "Failed to update progress", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(updatedGoal)
 }
 
 // DeleteGoalHandler handles deleting a goal by its ID.
