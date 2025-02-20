@@ -154,7 +154,7 @@ func (h *GoalHandler) UpdateGoalProgressHandler(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	// 🔹 Проверяем, что пользователь - владелец цели
+	// Ensure the logged-in user owns the goal
 	if goal.UserID.Hex() != claims.UserID {
 		http.Error(w, "Forbidden: You can only update your own goals", http.StatusForbidden)
 		return
@@ -171,14 +171,31 @@ func (h *GoalHandler) UpdateGoalProgressHandler(w http.ResponseWriter, r *http.R
 	}
 	defer r.Body.Close()
 
-	// 🔹 Проверяем, есть ли шаг в списке шагов
+	// Ensure the step exists in the goal
 	if _, exists := goal.Progress[progressUpdate.Step]; !exists {
 		http.Error(w, "Step not found in goal", http.StatusBadRequest)
 		return
 	}
 
-	// 🔹 Обновляем статус шага
+	// Update step progress
 	goal.Progress[progressUpdate.Step] = progressUpdate.Done
+
+	// Check if all steps are completed
+	allCompleted := true
+	for _, done := range goal.Progress {
+		if !done {
+			allCompleted = false
+			break
+		}
+	}
+
+	// Update goal status
+	if allCompleted {
+		goal.Status = "completed"
+	} else {
+		goal.Status = "in_progress"
+	}
+
 	goal.UpdatedAt = time.Now()
 
 	// Save changes
