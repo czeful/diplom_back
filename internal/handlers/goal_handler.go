@@ -86,7 +86,7 @@ func (h *GoalHandler) UpdateGoalHandler(w http.ResponseWriter, r *http.Request) 
 	vars := mux.Vars(r)
 	goalID := vars["id"]
 
-	// Get the logged-in user from JWT token
+	// Get the logged-in user
 	claims := middleware.GetUserFromContext(r.Context())
 	if claims == nil {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -100,20 +100,20 @@ func (h *GoalHandler) UpdateGoalHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Fetch the goal from DB
-	goal, err := h.Service.GetGoal(r.Context(), goalID)
-	if err != nil || goal == nil {
+	// Fetch the existing goal
+	existingGoal, err := h.Service.GetGoal(r.Context(), goalID)
+	if err != nil || existingGoal == nil {
 		http.Error(w, "Goal not found", http.StatusNotFound)
 		return
 	}
 
-	// Check if the logged-in user is the owner of the goal
-	if goal.UserID.Hex() != claims.UserID {
+	// Ensure the logged-in user is the owner of the goal
+	if existingGoal.UserID.Hex() != claims.UserID {
 		http.Error(w, "Forbidden: You can only update your own goals", http.StatusForbidden)
 		return
 	}
 
-	// Decode request body
+	// Decode request body (new goal data)
 	var updatedGoal models.Goal
 	if err := json.NewDecoder(r.Body).Decode(&updatedGoal); err != nil {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
@@ -121,11 +121,36 @@ func (h *GoalHandler) UpdateGoalHandler(w http.ResponseWriter, r *http.Request) 
 	}
 	defer r.Body.Close()
 
-	// Perform update
+	// Sync Progress Field (Only Keep Steps That Exist in Updated Goal)
+	newProgress := make(map[string]bool)
+
+	// Create a set of valid steps (to remove old progress)
+	validSteps := make(map[string]bool)
+	for _, step := range updatedGoal.Steps {
+		validSteps[step] = true
+	}
+
+	// Keep only the progress of valid steps
+	for step, done := range existingGoal.Progress {
+		if validSteps[step] {
+			newProgress[step] = done // Keep existing progress
+		}
+	}
+
+	// Add new steps with default `false`
+	for _, step := range updatedGoal.Steps {
+		if _, exists := newProgress[step]; !exists {
+			newProgress[step] = false
+		}
+	}
+
+	//  Assign updated values
 	updatedGoal.ID = objID
-	updatedGoal.UserID = goal.UserID // Keep the same owner
+	updatedGoal.UserID = existingGoal.UserID
+	updatedGoal.Progress = newProgress // Ensure old steps are removed
 	updatedGoal.UpdatedAt = time.Now()
 
+	// Save the updated goal
 	updatedGoalData, err := h.Service.UpdateGoal(r.Context(), goalID, &updatedGoal)
 	if err != nil {
 		http.Error(w, "Failed to update goal", http.StatusInternalServerError)
