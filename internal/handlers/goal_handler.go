@@ -40,15 +40,21 @@ func (h *GoalHandler) CreateGoalHandler(w http.ResponseWriter, r *http.Request) 
 	}
 	defer r.Body.Close()
 
-	// Convert UserID from string to ObjectID
+	// Convert UserID to ObjectID
 	userID, err := primitive.ObjectIDFromHex(claims.UserID)
 	if err != nil {
 		http.Error(w, "Invalid user ID", http.StatusInternalServerError)
 		return
 	}
-	goal.UserID = userID // Assign the logged-in user's ID
+	goal.UserID = userID
 	goal.CreatedAt = time.Now()
 	goal.UpdatedAt = time.Now()
+
+	//  Validate & Parse Due Date (Optional)
+	if !goal.DueDate.IsZero() && goal.DueDate.Before(time.Now()) {
+		http.Error(w, "Due date cannot be in the past", http.StatusBadRequest)
+		return
+	}
 
 	// Initialize `progress`: All steps = false
 	goal.Progress = make(map[string]bool)
@@ -56,7 +62,7 @@ func (h *GoalHandler) CreateGoalHandler(w http.ResponseWriter, r *http.Request) 
 		goal.Progress[step] = false
 	}
 
-	// Save the goal in DB
+	// Save to DB
 	createdGoal, err := h.Service.CreateGoal(r.Context(), &goal)
 	if err != nil {
 		http.Error(w, "Failed to create goal", http.StatusInternalServerError)
@@ -70,13 +76,20 @@ func (h *GoalHandler) CreateGoalHandler(w http.ResponseWriter, r *http.Request) 
 // GetGoalHandler handles fetching a single goal by its ID.
 func (h *GoalHandler) GetGoalHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	id := vars["id"]
+	goalID := vars["id"]
 
-	goal, err := h.Service.GetGoal(r.Context(), id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusNotFound)
+	// Fetch the goal from DB
+	goal, err := h.Service.GetGoal(r.Context(), goalID)
+	if err != nil || goal == nil {
+		http.Error(w, "Goal not found", http.StatusNotFound)
 		return
 	}
+
+	// Check if the goal is overdue
+	if !goal.DueDate.IsZero() && goal.DueDate.Before(time.Now()) {
+		goal.Status = "expired"
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(goal)
 }
@@ -113,13 +126,19 @@ func (h *GoalHandler) UpdateGoalHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Decode request body (new goal data)
+	// Decode request body
 	var updatedGoal models.Goal
 	if err := json.NewDecoder(r.Body).Decode(&updatedGoal); err != nil {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
 	defer r.Body.Close()
+
+	//  Validate & Parse Due Date (Optional)
+	if !updatedGoal.DueDate.IsZero() && updatedGoal.DueDate.Before(time.Now()) {
+		http.Error(w, "Due date cannot be in the past", http.StatusBadRequest)
+		return
+	}
 
 	// Sync Progress Field (Only Keep Steps That Exist in Updated Goal)
 	newProgress := make(map[string]bool)
