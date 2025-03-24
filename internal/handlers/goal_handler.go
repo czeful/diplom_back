@@ -86,6 +86,13 @@ func (h *GoalHandler) GetGoalHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	goalID := vars["id"]
 
+	// Get the logged-in user
+	claims := middleware.GetUserFromContext(r.Context())
+	if claims == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	// Fetch the goal from DB
 	goal, err := h.Service.GetGoal(r.Context(), goalID)
 	if err != nil || goal == nil {
@@ -93,7 +100,13 @@ func (h *GoalHandler) GetGoalHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if the goal is overdue
+	//  Ensure the logged-in user is the owner of the goal
+	if goal.UserID.Hex() != claims.UserID {
+		http.Error(w, "Forbidden: You can only view your own goals", http.StatusForbidden)
+		return
+	}
+
+	//  Check if the goal is overdue
 	if !goal.DueDate.IsZero() && goal.DueDate.Before(time.Now()) {
 		goal.Status = "expired"
 	}
