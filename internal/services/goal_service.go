@@ -81,3 +81,7 @@ func (s *GoalService) GetAllGoals(ctx context.Context, limit int64) ([]models.Go
 	}
 	return goals, nil
 }
+
+func (s *GoalService) GetGoals(ctx context.Context, userID primitive.ObjectID, category string) ([]models.Goal, error) {
+	return s.repo.GetGoals(ctx, userID, category)
+}

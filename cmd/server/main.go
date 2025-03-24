@@ -46,6 +46,7 @@ func main() {
 	protectedRoutes.HandleFunc("/{id}", goalHandler.DeleteGoalHandler).Methods("DELETE")
 	protectedRoutes.HandleFunc("/{id}/progress", goalHandler.UpdateGoalProgressHandler).Methods("PATCH")
 	protectedRoutes.HandleFunc("/{id}/progress", goalHandler.GetGoalProgressHandler).Methods("GET")
+	protectedRoutes.HandleFunc("", goalHandler.GetGoalsHandler).Methods("GET")
 
 	// Register User routes
 	router.HandleFunc("/users/register", userHandler.RegisterUserHandler).Methods("POST")

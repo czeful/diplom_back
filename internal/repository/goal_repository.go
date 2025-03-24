@@ -105,3 +105,30 @@ func (r *GoalRepository) GetAllGoals(ctx context.Context, limit int64) ([]models
 
 	return goals, nil
 }
+
+// GetGoals fetches goals for a specific user with an optional category filter
+func (r *GoalRepository) GetGoals(ctx context.Context, userID primitive.ObjectID, category string) ([]models.Goal, error) {
+	var goals []models.Goal
+
+	// Build the filter for MongoDB query
+	filter := bson.M{"user_id": userID}
+	if category != "" {
+		filter["category"] = category
+	}
+
+	cursor, err := r.collection.Find(ctx, filter)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch goals: %v", err)
+	}
+	defer cursor.Close(ctx)
+
+	for cursor.Next(ctx) {
+		var goal models.Goal
+		if err := cursor.Decode(&goal); err != nil {
+			return nil, fmt.Errorf("failed to decode goal: %v", err)
+		}
+		goals = append(goals, goal)
+	}
+
+	return goals, nil
+}

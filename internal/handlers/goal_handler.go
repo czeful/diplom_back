@@ -56,7 +56,15 @@ func (h *GoalHandler) CreateGoalHandler(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Initialize `progress`: All steps = false
+	//  Validate & Set Category (Optional)
+	if goal.Category != "" {
+		if _, exists := models.AllowedCategories[goal.Category]; !exists {
+			http.Error(w, "Invalid category", http.StatusBadRequest)
+			return
+		}
+	}
+
+	// Initialize progress field
 	goal.Progress = make(map[string]bool)
 	for _, step := range goal.Steps {
 		goal.Progress[step] = false
@@ -142,6 +150,14 @@ func (h *GoalHandler) UpdateGoalHandler(w http.ResponseWriter, r *http.Request) 
 
 	// Sync Progress Field (Only Keep Steps That Exist in Updated Goal)
 	newProgress := make(map[string]bool)
+
+	//  Validate & Set Category (Optional)
+	if updatedGoal.Category != "" {
+		if _, exists := models.AllowedCategories[updatedGoal.Category]; !exists {
+			http.Error(w, "Invalid category", http.StatusBadRequest)
+			return
+		}
+	}
 
 	// Create a set of valid steps (to remove old progress)
 	validSteps := make(map[string]bool)
@@ -289,6 +305,8 @@ func (h *GoalHandler) DeleteGoalHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 // GetAllGoalsHandler handles fetching all goals, with an optional limit.
+
+// Its not working right now, we will need it later when we will add admins and their rights with functions
 func (h *GoalHandler) GetAllGoalsHandler(w http.ResponseWriter, r *http.Request) {
 	limitParam := r.URL.Query().Get("limit")
 	var limit int64 = 10 // default limit
@@ -339,4 +357,33 @@ func (h *GoalHandler) GetGoalProgressHandler(w http.ResponseWriter, r *http.Requ
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
+}
+
+func (h *GoalHandler) GetGoalsHandler(w http.ResponseWriter, r *http.Request) {
+	// Get logged-in user
+	claims := middleware.GetUserFromContext(r.Context())
+	if claims == nil {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Convert UserID to ObjectID
+	userID, err := primitive.ObjectIDFromHex(claims.UserID)
+	if err != nil {
+		http.Error(w, "Invalid user ID", http.StatusInternalServerError)
+		return
+	}
+
+	// Get category filter from query params (optional)
+	category := r.URL.Query().Get("category")
+
+	// Fetch goals from DB with optional category filter
+	goals, err := h.Service.GetGoals(r.Context(), userID, category)
+	if err != nil {
+		http.Error(w, "Failed to retrieve goals", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(goals)
 }
