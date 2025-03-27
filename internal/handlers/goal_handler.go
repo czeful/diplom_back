@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/Dias221467/Achievemenet_Manager/internal/models"
-	"github.com/Dias221467/Achievemenet_Manager/internal/services"
-	"github.com/Dias221467/Achievemenet_Manager/pkg/middleware"
+	"github.com/czeful/diplom_back/internal/models"
+	"github.com/czeful/diplom_back/internal/services"
+	"github.com/czeful/diplom_back/pkg/middleware"
 	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )

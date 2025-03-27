@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/Dias221467/Achievemenet_Manager/internal/models"
-	"github.com/Dias221467/Achievemenet_Manager/internal/repository"
+	"github.com/czeful/diplom_back/internal/models"
+	"github.com/czeful/diplom_back/internal/repository"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 

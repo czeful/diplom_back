@@ -4,12 +4,13 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/Dias221467/Achievemenet_Manager/internal/config"
-	"github.com/Dias221467/Achievemenet_Manager/internal/models"
-	"github.com/Dias221467/Achievemenet_Manager/internal/services"
-	jwtutil "github.com/Dias221467/Achievemenet_Manager/pkg/jwt"
-	"github.com/Dias221467/Achievemenet_Manager/pkg/middleware"
+	"github.com/czeful/diplom_back/internal/config"
+	"github.com/czeful/diplom_back/internal/models"
+	"github.com/czeful/diplom_back/internal/services"
+	jwtutil "github.com/czeful/diplom_back/pkg/jwt"
+	"github.com/czeful/diplom_back/pkg/middleware"
 	"github.com/gorilla/mux"
+	// "github.com/rs/cors"
 )
 
 // UserHandler handles HTTP requests related to user operations.

@@ -6,7 +6,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/Dias221467/Achievemenet_Manager/internal/config"
+	"github.com/czeful/diplom_back/internal/config"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )

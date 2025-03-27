@@ -5,18 +5,19 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/Dias221467/Achievemenet_Manager/internal/config"
-	"github.com/Dias221467/Achievemenet_Manager/internal/database"
-	"github.com/Dias221467/Achievemenet_Manager/internal/handlers"
-	"github.com/Dias221467/Achievemenet_Manager/internal/repository"
-	"github.com/Dias221467/Achievemenet_Manager/internal/services"
-	"github.com/Dias221467/Achievemenet_Manager/pkg/middleware"
+	"github.com/czeful/diplom_back/internal/config"
+	"github.com/czeful/diplom_back/internal/database"
+	"github.com/czeful/diplom_back/internal/handlers"
+	"github.com/czeful/diplom_back/internal/repository"
+	"github.com/czeful/diplom_back/internal/services"
+	"github.com/czeful/diplom_back/pkg/middleware"
 	"github.com/gorilla/mux"
 )
 
 func main() {
 	// Load configuration from .env file
 	cfg := config.LoadConfig()
+
 
 	// Connect to MongoDB Atlas
 	db, err := database.ConnectDB(cfg)

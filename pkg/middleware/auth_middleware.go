@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	jwtutil "github.com/Dias221467/Achievemenet_Manager/pkg/jwt"
+	jwtutil "github.com/czeful/diplom_back/pkg/jwt"
 )
 
 // Context key for storing user info
