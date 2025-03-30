@@ -3,14 +3,18 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-
+	"fmt"
+	"bytes"
+	"time"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"io"   // Добавляем импорт io
 	"github.com/czeful/diplom_back/internal/config"
 	"github.com/czeful/diplom_back/internal/models"
 	"github.com/czeful/diplom_back/internal/services"
 	jwtutil "github.com/czeful/diplom_back/pkg/jwt"
 	"github.com/czeful/diplom_back/pkg/middleware"
 	"github.com/gorilla/mux"
-	// "github.com/rs/cors"
+
 )
 
 // UserHandler handles HTTP requests related to user operations.
@@ -27,21 +31,60 @@ func NewUserHandler(service *services.UserService, cfg *config.Config) *UserHand
 	}
 }
 
+
 // RegisterUserHandler handles user registration.
 func (h *UserHandler) RegisterUserHandler(w http.ResponseWriter, r *http.Request) {
-	var user models.User
-	if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, "Failed to read request body", http.StatusBadRequest)
+		return
+	}
+
+	fmt.Println("Полученные данные от клиента:", string(body))
+
+	// Восстанавливаем r.Body, так как он уже был прочитан
+	r.Body = io.NopCloser(bytes.NewBuffer(body))
+
+	// Временная структура для парсинга JSON, чтобы учесть `password`
+	var requestData struct {
+		Username string `json:"username"`
+		Email    string `json:"email"`
+		Password string `json:"password"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&requestData); err != nil {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
+
+	// Проверяем, все ли нужные поля заполнены
+	if requestData.Username == "" || requestData.Email == "" || requestData.Password == "" {
+		http.Error(w, "Missing required user fields", http.StatusBadRequest)
+		return
+	}
+
+	// Создаем объект пользователя
+	user := models.User{
+		ID:             primitive.NewObjectID(),
+		Username:       requestData.Username,
+		Email:          requestData.Email,
+		HashedPassword: requestData.Password, // Передаем пароль в UserService для хеширования
+		CreatedAt:      time.Now(),
+		UpdatedAt:      time.Now(),
+	}
+
 	createdUser, err := h.Service.RegisterUser(r.Context(), &user)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(createdUser)
 }
+
+
+
 
 // LoginUserHandler handles user login.
 func (h *UserHandler) LoginUserHandler(w http.ResponseWriter, r *http.Request) {

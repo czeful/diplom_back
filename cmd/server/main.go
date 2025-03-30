@@ -12,12 +12,23 @@ import (
 	"github.com/czeful/diplom_back/internal/services"
 	"github.com/czeful/diplom_back/pkg/middleware"
 	"github.com/gorilla/mux"
+	"github.com/rs/cors"
 )
 
 func main() {
 	// Load configuration from .env file
 	cfg := config.LoadConfig()
 
+	// Initialize Gorilla Mux router
+	router := mux.NewRouter()
+
+	// Apply CORS middleware
+	handler := cors.New(cors.Options{
+		AllowedOrigins:   []string{"http://localhost:3000"}, // Разрешаем React
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+		AllowCredentials: true,
+	}).Handler(router)
 
 	// Connect to MongoDB Atlas
 	db, err := database.ConnectDB(cfg)
@@ -34,9 +45,6 @@ func main() {
 	userRepo := repository.NewUserRepository(db)
 	userService := services.NewUserService(userRepo)
 	userHandler := handlers.NewUserHandler(userService, cfg)
-
-	// Initialize Gorilla Mux router
-	router := mux.NewRouter()
 
 	// Apply authentication middleware to goal routes
 	protectedRoutes := router.PathPrefix("/goals").Subrouter()
@@ -65,5 +73,6 @@ func main() {
 	// Start the HTTP server
 	port := cfg.Port
 	fmt.Printf("Server running on port %s\n", port)
-	log.Fatal(http.ListenAndServe(":"+port, router))
+	log.Fatal(http.ListenAndServe(":"+port, handler))
 }
+
